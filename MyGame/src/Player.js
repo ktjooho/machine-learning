@@ -6,6 +6,9 @@ var Player = cc.Sprite.extend({
     status:1,
     vel: 0,
     accer:3,
+    lastVel:0,
+    lastX:0,
+    lastY:0,
     ctor:function(arg)
     {
         this._super(res.r1_png);
@@ -28,24 +31,35 @@ var Player = cc.Sprite.extend({
         if(this.life < 0)
         {
             //Scene Transion to game over
-
         }
+    },
+    unmove:function()
+    {
+        this.vel = this.lastVel;
+        this.x= this.lastX;
+        this.y = this.lastY;
 
 
     },
     move:function(direction,dt)
     {
         //direction {1:hold, 2:left, 3:right}
-        if(direction==MW.MOVE_HOLD)
-            return ;
+        this.lastVel = this.vel;
+        this.lastX = this.x;
+        this.lastY = this.y;
 
+        
+        
         var speed = 350;
         var accer = 1200;
+        var limit = 100000;
+
+
 
         switch(direction)
         {
             case MW.MOVE_HOLD://hold
-
+                this.vel=0;
                 break;
             case MW.MOVE_LEFT://left
 
@@ -54,6 +68,9 @@ var Player = cc.Sprite.extend({
                     this.accer = -accer;
                 } else{
                     this.vel = this.vel + this.accer*dt/2;
+                    if(this.vel < -limit )
+                        this.vel = -limit;
+
                 }
                 break;
             case MW.MOVE_RIGHT://right
@@ -63,10 +80,17 @@ var Player = cc.Sprite.extend({
                 }
                 else{
                     this.vel = this.vel + this.accer*dt/2;
+                    if(this.vel>limit )
+                        this.vel = limit;
                 }
 
                 break;
         }
+        if(this.vel >= 1200)
+            this.vel = 1200;
+        else if(this.vel <= - 1200)
+            this.vel = -1200;
+
         var d = dt * this.vel;
 
         //this.x += d;
@@ -78,8 +102,14 @@ var Player = cc.Sprite.extend({
         else if(this.x + d >= cc.winSize.width) {
             d = cc.winSize.width - this.x;
         }
+
+//        console.log("PLAYER VEC"+this.vel);
+
         this.x += d;
 
+
+
+        /*
         //Drawing Layer
         for(var i=0; i< g_sharedGameLayer.aiBox.length; ++i)
             g_sharedGameLayer.aiBox[i].x += d;
@@ -88,7 +118,7 @@ var Player = cc.Sprite.extend({
         g_sharedGameLayer.bot.boundingBoxFactor[2] += d;
 
         g_sharedGameLayer.bot.boundingBoxNode.x = g_sharedGameLayer.bot.boundingBoxFactor[0];
-
+        */
 
        // console.log("Player v : "+this.vel*dt);
 
@@ -101,15 +131,19 @@ var Player = cc.Sprite.extend({
         //S = v0t + 1/2 a*t^2
         //cc._logToWebPage("Event");
         //Event Handling
-        if ((MW.KEYS[cc.KEY.a] || MW.KEYS[cc.KEY.left]) ) {
 
+
+        if ((MW.KEYS[cc.KEY.a] || MW.KEYS[cc.KEY.left]))
+        {
             this.move(MW.MOVE_LEFT,dt);
-
         }
-        if ((MW.KEYS[cc.KEY.d] || MW.KEYS[cc.KEY.right]) ) {
+
+        if ((MW.KEYS[cc.KEY.d] || MW.KEYS[cc.KEY.right]) )
+        {
             this.move(MW.MOVE_RIGHT,dt);
-
         }
+
+
 
 
     },

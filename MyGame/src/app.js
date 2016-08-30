@@ -1,6 +1,6 @@
 
-var NUM_POO = 10
-var PLAY_AI = 1
+var NUM_POO = 14
+var PLAY_AI = 0
 
 
 var MW = MW || {};
@@ -41,7 +41,7 @@ HelloWorldLayer = cc.Layer.extend({
     playerAccel:null,
     playerVec:null,
     player: null,
-    pooArr :  Array(NUM_POO*2),
+    pooArr :  Array(NUM_POO),
     scoreLabel:null,
     maxScoreLabel:null,
     lifeLabel:null,
@@ -108,9 +108,10 @@ HelloWorldLayer = cc.Layer.extend({
 
 
         this.bot = new Bot(this.player);
+        this.bot.init();
         //For Debugging
-        this.aiBox = new Array(this.bot.gridRowNum*this.bot.gridColNum);
-
+        //this.aiBox = new Array(this.bot.gridRowNum*this.bot.gridColNum);
+        /*
         var sx = this.bot.boundingBoxFactor[2];
         var sy = this.bot.boundingBoxFactor[3];
 
@@ -131,6 +132,7 @@ HelloWorldLayer = cc.Layer.extend({
                 sprite.scaleY = this.bot.gridHeight / sprite.height;
             }
         }
+        */
 
 
 
@@ -141,7 +143,7 @@ HelloWorldLayer = cc.Layer.extend({
 
         for(var i=0; i<this.pooArr.length; ++i )
         {
-            cc._logToWebPage("성주호~ 이제 똥 만들자");
+            // cc._logToWebPage("성주호~ 이제 똥 만들자");
             this.pooArr[i] = new Poo(null);
            /*
             this.pooArr[i].attr({
@@ -205,6 +207,10 @@ HelloWorldLayer = cc.Layer.extend({
         console.log("Game Play Num"+this.gamePlayCnt);
         this.gamePlayCnt++;
 
+        if((this.gamePlayCnt%50)==0){
+            this.bot.explore = this.bot.explore * 0.6;
+        }
+
         this.player.init();
         this.player.resume();
         this.player.setVisible(true);
@@ -220,24 +226,6 @@ HelloWorldLayer = cc.Layer.extend({
         this.pooTick = 0;
         MW.GAME_STATE = GAME_PLAY;
 
-        //Bounding Box init
-        this.bot.boundingBoxFactor = this.bot.getBoundingBox(this.player);
-        this.bot.boundingBoxNode.x = this.bot.boundingBoxFactor[0];
-        //this.bot.dirty=0;
-        //Aibox init
-        var sx = this.bot.boundingBoxFactor[2];
-        var sy = this.bot.boundingBoxFactor[3];
-
-        for(var i=0; i< this.bot.gridRowNum;++i)
-        {
-            for(var j=0;j < this.bot.gridColNum; ++j)
-            {
-                //console.log("IDX :",i*this.bot.gridColNum + j);
-                var sprite = this.aiBox[i*this.bot.gridColNum+j];
-                sprite.x = sx + j * this.bot.gridWidth;
-                sprite.y = sy - i * this.bot.gridHeight;
-            }
-        }
 
     },
     gameReset:function()
@@ -322,7 +310,8 @@ HelloWorldLayer = cc.Layer.extend({
 
             if(PLAY_AI)
             {
-                this.player.move(this.bot.act(this.player,this.pooArr,dt),dt);
+                //this.player.move(this.bot.act(this.player,this.pooArr,dt),dt);
+                this.player.move(this.bot.update(this.player,this.pooArr),dt);
             }
 
             if(MW.KEYS[cc.KEY.space]){
@@ -336,13 +325,22 @@ HelloWorldLayer = cc.Layer.extend({
             {
                 this.player.life--;
 
-                this.bot.reward = -500;
+                this.bot.reward = -1000;
                 console.log("REWARD DOWN");
-                if(this.player.life <= 0)
+                if(this.player.life <= 0) {
+                    if(PLAY_AI){
+                        this.bot.update(this.player,this.pooArr);
+                        this.bot.dirty = 0;
+
+                    }
                     this.gameReset();
+                }
+
             }else{
                 this.bot.reward = 1;
             }
+
+            //Update?
 
             // 초 당 5개
             //0.2초에 5개

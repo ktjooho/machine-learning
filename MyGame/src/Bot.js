@@ -4,7 +4,7 @@
 
 var Bot = function (player) {
 
-   // this.reward;
+    // this.reward;
     //this.qValueArray;
 
     //console.log("Is it function or object?");
@@ -15,7 +15,7 @@ var Bot = function (player) {
     this.learningRate;
     this.discountFactor;
 
-    this.player=player;
+    this.player = player;
     this.gridRowNum;
     this.gridColNum;
     this.gridWidth;
@@ -23,325 +23,548 @@ var Bot = function (player) {
     this.boundingBoxFactor;
     this.boundingBoxNode;
 
-    this.prevState={"pos":0,"vec":0,"speed":0,"poo":0};
-    this.nextState={"pos":0,"vec":0,"speed":0,"poo":0};
+    this.prevState = {"pos": 0, "vec": 0, "speed": 0, "poo": 0};
+    this.nextState = {"pos": 0, "vec": 0, "speed": 0, "poo": 0};
     this.doAction;
     this.dirty;
     this.explore;
-    
 
 
+    this.weightArray;
+    this.featureSize;
+    this.pooFeature;
 
-    Bot.prototype.init = function ()
-    {
+    this.lastFeature;
+    this.tempFeature;
+    this.featureArray;
+
+    this.updateQSA;
+
+    Bot.prototype.init = function () {
         console.log("Init Bot");
 
         this.dirty = 0;
-        this.gridRowNum=3;
-        this.gridColNum=5;
-        this.gridWidth=50;
-        this.gridHeight=80;
+        this.gridRowNum = 3;
+        this.gridColNum = 5;
 
-        this.boundingBoxFactor = this.getBoundingBox(this.player);
-
+       // this.boundingBoxFactor = this.getBoundingBox(this.player);
+        /*
         this.boundingBoxNode = new cc.Sprite();
         this.boundingBoxNode.width = this.gridWidth * this.gridColNum;
         this.boundingBoxNode.height = this.gridHeight * this.gridRowNum;
         this.boundingBoxNode.x = this.boundingBoxFactor[0];
         this.boundingBoxNode.y = this.boundingBoxFactor[1];
+        */
 
-
-
-
-        this.explore = 0.005;
+        this.explore = 0.00;
         this.reward = 1;
-        this.qValueArray = new Array();
-        this.learningRate = 0.3;
+        // this.qValueArray = new Array();
+        this.learningRate = 0.05;
         this.discountFactor = 0.9;
+
         var size = cc.winSize;
 
-        //VAR[POS][VEL][1][0][0][0][1][0][0][1][0][0]...[0]
-       // console.log("TEST"+Math.pow(2,12));
-        //PlayerPos, direction, speed,
-        //11 * 2 * 4 *
-        // 88 * 2^15
-        // 240만개
-        //2.4 * 4
-        //9.6 메가
-        for(var playerPos=0; playerPos<=cc.winSize.width; playerPos+=cc.winSize.width/10)
+
+        this.gridWidth = size.width * 0.75;
+        this.gridHeight = size.height;
+
+        this.featureSize = (this.gridWidth * this.gridHeight) + 1;
+        this.featureSize = 6;
+
+        this.weightArray = new Array(this.featureSize);
+        this.featureArray = new Array(this.featureSize);
+        this.lastFeature = new Array(this.featureSize);
+        this.tempFeature = new Array(this.featureSize);
+
+
+        for (var i = 0; i < this.weightArray.length; ++i)
         {
-            this.qValueArray[playerPos] = new Array();
-
-            for(var d=0; d<2; ++d)
-            {
-                this.qValueArray[playerPos][d] = new Array();
-
-                for(var playerVel=0;playerVel<=30;playerVel+=10)
-                {
-                    this.qValueArray[playerPos][d][playerVel] = new Array();
-                    var limit = Math.pow(2,this.gridRowNum*this.gridColNum);
-                    for(var idx=0; idx < limit; ++idx)
-                    {
-                        this.qValueArray[playerPos][d][playerVel][idx] = new Array();
-                        for(var action=0; action<MW.MOVE_NUM; ++action)
-                        {
-                            this.qValueArray[playerPos][d][playerVel][idx][action] = 0;
-                        }
-                    }
-                }
-            }
-
-
+            this.weightArray[i] = 0;
         }
+
         var randomVal = Math.random() * 3;
-        console.log("RandomVal:"+randomVal);
+        console.log("RandomVal:" + randomVal);
         randomVal = Math.ceil(randomVal);
-        console.log("RandomVal:"+randomVal);
+        console.log("RandomVal:" + randomVal);
     }
-    Bot.prototype.getBoundingBox=function(player)
-    {
-        var px = player.x;
-        var py = player.y;
-        var sx,sy;
-        var cx,cy;
+    Bot.prototype.fillColor = function(player, poo){
+        //좌하단
+        var player_center_x = this.gridWidth / 2;
 
-        cx = px;
+        var relative_dist_x = poo.x - player.x;
 
-        if(!(this.gridColNum%2)){
-            sx = px - (Math.floor(this.gridColNum/2) - 0.5) * this.gridWidth;
-        }else{
-            sx = px -  Math.floor((this.gridColNum/2 )) * this.gridWidth;
-        }
+        var poo_x = player_center_x + relative_dist_x;
+        var poo_y = poo.y;
 
-        cy = sy = player.height + 10 + this.gridHeight/2;
-        sy += (this.gridRowNum-1) * this.gridHeight;
+        console.assert(poo_x>=0 || poo_x <=this.gridWidth,"Index Calculate Error poo_x:"+poo_x+"+" +
+            "Player_center_x :"+player_center_x + "Relative_dist :"+relative_dist_x);
 
-        if(this.gridRowNum%2){
-            cy = cy + Math.floor((this.gridRowNum/2))*this.gridHeight;
-        }else {
-            cy = cy + (Math.floor(this.gridRowNum/2) - 0.5)*this.gridHeight;
-        }
+        var sx = poo_x - poo.width/2;
+        var sy = poo_y - poo.height/2;
 
+        sx = Math.floor(sx);
+        sy = Math.floor(sy);
 
+        var c =  1 / (poo.width * poo.height*NUM_POO*10);
 
-        return [cx,cy,sx,sy];
-    }
-    Bot.prototype.getBoxIndex=function(obj)
-    {
-        //get X,Y
-        var sx=this.boundingBoxFactor[2],sy=this.boundingBoxFactor[3];
-        var x,y;
-        var dist,min=100000,val;
-        var minI,minJ;
+        var max = 1;
+        var min = 0.6;
+        var d =  (min - max) / (this.gridWidth - 0);
+        var k = d * Math.abs(relative_dist_x) + max;
+        k = k * (1 - (poo_y / cc.winSize.height));
+        var ck = c*k;
+        //(H-1)*W + (W-1)
+        // H*W - W + W -1
 
-        for(var i=0; i<this.gridRowNum; ++i)
+        for(var i = sy; i< sy+poo.height; ++i)
         {
-            y = sy - i * this.gridHeight;
-
-            for(var j=0; j<this.gridColNum; ++j)
+            if(i >= this.gridHeight || i < 0) continue;
+            for(var j=sx; j<sx+poo.width; ++j)
             {
-                x = sx + j * this.gridWidth;
+                if(j<0 || j>= this.gridWidth) continue;
 
-                dist = Math.sqrt((x-obj.x)*(x-obj.x) + (y-obj.y)*(y-obj.y));
-               // console.log("x:"+x+", y:"+y+",dist:"+dist);
-                if(min>dist)
-                {
-                    min = dist;
-                    val = Math.pow(2,i*this.gridColNum+j);
-                    minI = i;
-                    minJ = j;
+                /*
+                if(this.featureArray[i*this.gridWidth+j] > 0 && this.featureArray[i*this.gridWidth+j] < c){
+                    console.log("wtf!!! I:"+i+"J:"+j);
                 }
+                */
+                // this.weightArray[i*this.gridWidth + j] = c * k;
+                // console.assert(this.featureArray[i*this.gridWidth+j] >= 0 && this.featureArray[i*this.gridWidth+j]<c*k,"WTF Redundant : "+this.featureArray[i*this.gridWidth+j]+"I:"+i+",J:"+j);
+                // console.assert(i*this.gridWidth + j < this.featureSize, "SIZE ERROR : "+i*this.gridWidth + j );
+                this.featureArray[i*this.gridWidth+j] = c;
             }
         }
-        //console.log("MIN_I : " + minI + "MIN_J :" + minJ);
-        return val;
-    }
 
-    Bot.prototype.getNormVal=function(start,end,unit,v)
-    {
-        if(v>=end)
+    }
+    Bot.prototype.getNormVal = function (start, end, unit, v) {
+        if (v >= end)
             return end;
 
-        for(var s=start;s<end; s+=unit)
-        {
-            if(v >= s && v <= s+unit)
-            {
+        for (var s = start; s < end; s += unit) {
+            if (v >= s && v <= s + unit) {
                 var prev = v - s;
                 var next = s + unit - v;
-                if(prev > next)
+                if (prev > next)
                     return s + unit;
                 else
                     return s;
             }
         }
     }
-    Bot.prototype.getNormPlayerPos=function(player)
-    {
-        return this.getNormVal(0,cc.winSize.width,cc.winSize.width/10,player.x);
+    Bot.prototype.getNormMinMax = function (val, min, max) {
+        if (val < min)
+            return 0;
+        if (val > max)
+            return 1;
+
+        return (val - min) / (max - min);
     }
-    Bot.prototype.getNormPlayerVec=function(player,dt)
-    {
+    Bot.prototype.getNormPlayerPos = function (player) {
+
+        return this.getNormVal(0, cc.winSize.width, cc.winSize.width / 10, player.x);
+
+    }
+    Bot.prototype.getNormPlayerVec = function (player, dt) {
         var direction;
 
         var vel = player.vel;
 
-       // if(vel!=0)
-      //      console.log("VEL :"+vel);
+        // if(vel!=0)
+        //      console.log("VEL :"+vel);
 
-        if(player.vel >= 0)
+        if (player.vel >= 0)
             direction = 0;
         else
             direction = 1;
 
-        vel = Math.abs(vel)*dt;
+        vel = Math.abs(vel) * dt;
 
-        var speed = this.getNormVal(0,30,10,vel);
+        var speed = this.getNormVal(0, 30, 10, vel);
 
         //console.log("Direction : "+direction+" Speed:"+speed + "Vel :"+vel);
 
-        return [direction,speed];
+        return [direction, speed];
     }
+    Bot.prototype.getHeightDiff = function (player, poo) {
+        var ds;
 
+        if (player.vel > 0) {
+            //우측은 좌측까지만
+            //  ㅇ
+            // ㅇ
+            if (poo.x <= player.x) return poo.y;
+            ds = Math.abs(poo.x - poo.width / 2 - (player.x + player.width / 2));
 
-    Bot.prototype.act = function(player, pooList,dt)
+        } else {
+            //좌측은 우측까지만
+            // ㅇ
+            //    ㅇ
+            if (poo.x >= player.x) return poo.y;
+            ds = Math.abs(poo.x + poo.width / 2 - (player.x - player.width / 2));
+        }
+        var ds = Math.abs(poo.x - player.x);
+        var min = screen.height * 2;
+        //v = v0 + at
+        //s = s0 + v0t + (1/2)a*t^2
+        // v0*t + (1/2)a*t^2 = ds
+        // player.vel*t + (1/2)*player.accer*t = ds
+        // a*t^2 + b*t -ds = 0;
+        //
+        var unit = 1 / 60;
+        var getT;
+
+        for (var t = unit; t <= 2.0; t += unit) {
+
+            var d = Math.abs(player.vel * t + 0.5 * player.accer * t * t) - ds;
+
+            d = Math.abs(d);
+
+            if (min > d) {
+                min = d;
+                getT = t;
+            }
+        }
+        return poo.y - (poo.v * getT + 0.5 * poo.accr * getT * getT);
+        // poo.y - (poo.v*getT + 0.5*poo.accr*geT*getT)
+
+    }
+    Bot.prototype.getFeature2 = function(player, pooList)
     {
-        /*
-        var randomVal = Math.random() * 3;
-        randomVal = Math.ceil(randomVal);
-        return randomVal;
-        */
-        //console.log("Bot Action..");
-        var doAction; //HOLD, MOVE_LEFT, MOVE_RIGHT
-        var pos = this.getNormPlayerPos(player);
-        var vec = this.getNormPlayerVec(player,dt);
-        var set2 = new Set();
+        // var f = new Array(this.featureSize);
+        var screen = cc.winSize;
+        for(var i=0; i<this.featureSize; ++i)
+            this.featureArray[i] = 0;
+
+        this.featureArray[this.gridWidth * this.gridHeight] = 1; //Constant
+        var c = 1 / (pooList[0].width * pooList[0].height*NUM_POO*10);
+        c = c * 0.000001;
+        var d;
+
+        if(player.x + this.gridWidth * 0.5 > screen.width){
+            d = player.x + this.gridWidth*0.5 - screen.width;
+            d = Math.ceil(d);
+            // console.log("OverFlow D:"+d+",idx:"+this.gridWidth - d);
+            for(var i=0; i<this.gridHeight; ++i){
+                for(var j=this.gridWidth - d; j < this.gridWidth; ++j){
+                    this.featureArray[i*this.gridWidth + j] = c;
+                }
+            }
+            //
+        }else if(player.x - this.gridWidth*0.5 < 0){
+            d = -(player.x - this.gridWidth*0.5);
+            //0번부터
+            d = Math.ceil(d);
+            // console.log("UnderFlow D:"+d+",idx:"+0);
+            for(var i=0; i<this.gridHeight; ++i)
+            {
+                for(var j=0; j<d; ++j){
+                    this.featureArray[i*this.gridWidth + j] = c;
+                }
+            }
+        }
 
         for(var i=0; i<pooList.length; ++i)
-        {
-            var b = pooList[i];
-            //0. collision Check
+            this.fillColor(player,pooList[i]);
 
-            if(checkIntersectRect(b,this.boundingBoxNode))
-            {
-                set2.add(this.getBoxIndex(b));
+        //return f;
+    }
+    Bot.prototype.getFeature = function (player, pooList) 
+    {
+        if(this.featureSize > 100)
+            return this.getFeature2(player,pooList);
+        // var f = new Array(this.featureSize);
+        var screen = cc.winSize;
+
+        for (var i = 0; i < this.featureSize; ++i)
+            this.featureArray[i]=0;
+
+        this.featureArray[0] = 1;
+
+        for (var i = 0; i < pooList.length; ++i) {
+            if (checkIntersectRect(pooList[i], player)) {
+                this.featureArray[4] = NUM_POO / (1.8);
+                break;
             }
         }
 
-        var idx = 0;
 
-        for(var item of  set2)
-            idx += item;
+        //X좌표 기준으로 정렬
+        pooList.sort(function (a, b) {
+            return a.x < b.x ? -1 : a.x > b.x ? 1 : 0;
+        });
 
-        //console.log("IDX :"+idx);
-        // Q(s,a) = Q(s,a) + lr * (reward + discountFactor * max_Q(s',a)  - Q(s,a))
+        var boundHeight = screen.height * 2;
+        var boundMinDist = screen.width * 2;
+        var l = 0, r = screen.width;
+        var holdIdx=-1;
+        var colFront = -1, colTail;
+        var isSafe = 0;
+        var curHeight, linkHeight, predictHeight;
 
-        this.nextState.pos = pos;
-        this.nextState.vec = vec[0];
-        this.nextState.speed = vec[1];
-        this.nextState.poo = idx;
 
-        //console.log("pos:"+pos+"vec"+vec[0]+"speed"+vec[1]+"poo"+idx);
-        var moveLeft = this.qValueArray[pos][vec[0]][vec[1]][idx][MW.MOVE_LEFT];
-        var hold = this.qValueArray[pos][vec[0]][vec[1]][idx][MW.MOVE_HOLD];
-        var moveRight = this.qValueArray[pos][vec[0]][vec[1]][idx][MW.MOVE_RIGHT];
+        for (var i = 0; i <= pooList.length; ++i) {
+            if ((i < pooList.length) && ( pooList[i].y > screen.height || pooList[i].y - pooList[i].height / 2 < 0))
+                continue;
 
-        //var action = [MW.MOVE_LEFT:this.qValueArray[pos][vec[0]][vec[1]][idx][MW.MOVE_LEFT]];
-        var actionList = new Array(3);
+            if (
+                (i < pooList.length) &&
+                (pooList[i].x - (pooList[i].width / 2) < player.x + (player.width / 2)
+                &&
+                player.x - (player.width / 2) < pooList[i].x + (pooList[i].width / 2))
+            ) {
+                if (boundHeight > pooList[i].y)
+                    boundHeight = pooList[i].y;
 
-        actionList[MW.MOVE_LEFT] = this.qValueArray[pos][vec[0]][vec[1]][idx][MW.MOVE_LEFT];
-        actionList[MW.MOVE_HOLD] = this.qValueArray[pos][vec[0]][vec[1]][idx][MW.MOVE_HOLD];
-        actionList[MW.MOVE_RIGHT] = this.qValueArray[pos][vec[0]][vec[1]][idx][MW.MOVE_RIGHT];
+                if (player.vel == 0)
+                    this.featureArray[1] = 1 - boundHeight / screen.height;
 
+                if (colFront == -1)
+                    colFront = i;
+
+                colTail = i;
+            }
+
+            if (i == pooList.length)
+                r = screen.width;
+            else
+                r = pooList[i].x - pooList[i].width / 2;
+
+            // 플레이어의 위치 변화에 따른 (X좌표만 변함)
+            // console.assert(l<r,"L<R Assert l:"+l+"r:"+r);
+
+            if ((l < r) && (r - l) > player.width) {
+                //insert
+                //높이에 관한 것
+                var d;
+                if ((r < player.x + player.width / 2) && player.vel <= 0) //블록이 player기준 좌측에 있는 경우
+                {
+                    d = player.x + player.width / 2 - r;
+                }
+                else if ((l > player.x - player.width / 2) && player.vel >= 0) //블록이 player 기준 우측에 있는 경우
+                {
+                    d = l - (player.x - player.width / 2);
+                }
+                else if (l <= player.x - player.width / 2 && player.x + player.width / 2 <= r) //player가 이미 블록안에 들어감
+                {
+                    //안에 포함되는 경우.
+                    boundMinDist = 0;
+                    boundHeight = screen.height;
+                    isSafe = 1;
+                    break;
+                }
+                if (boundMinDist > d) {
+                    boundMinDist = d;
+                    holdIdx = i;
+                    this.featureArray[5] = 0;//(1 - ((r-l) / screen.width))*0.01;
+                }
+            }
+            if(i < pooList.length)
+                l = r + pooList[i].width;
+        }
+
+        var meanHeight = screen.height*2, s, t;
+
+        if (!isSafe) {
+            if (player.vel < 0) {
+                s = holdIdx;
+                t = colTail + 1;
+            }
+            else if (player.vel > 0) {
+                //collisionFrontIdx to holdIdx
+                s = colFront;
+                t = holdIdx;
+            } else {
+                //s = colFront;
+                //t = colTail+1;
+                s = t = 0;
+                meanHeight = boundHeight;
+            }
+            console.assert(s <= t,"T>S PROBLEM t "+t+",s:"+s+"PlayerVel:"+player.vel + "Hold idx:"+holdIdx);
+            console.assert(s>=0 || t>=0, "0 index problem T:"+t+"S:"+s);
+            if(s>=pooList.length+1 || t>=pooList.length+1){
+                console.log("suck");
+            }
+            if(typeof  holdIdx == "undefined"){
+                console.log("fuck");
+            }
+
+            console.assert(s<=pooList.length || t <= pooList.length,"Index error t:"+t+"s:"+s+"POO LEN:"+pooList.length);
+
+            if(holdIdx == -1){
+                meanHeight = 0;
+            }
+
+            for (var i = s; i < t && (holdIdx != -1); ++i) {
+
+                if (pooList[i].y > screen.height || pooList[i].y - pooList[i].height / 2 < 0)
+                    continue;
+
+                /*
+                 var predictPoo_y = this.getHeightDiff(player,pooList[i]);
+
+                 if(predictPoo_y + pooList[i].height/2 <= 0)
+                 continue;
+
+                 var d = predictPoo_y - player.y;
+                 if(meanHeight > d)
+                 meanHeight = d;
+                 */
+
+                // 대략
+                // player.x =>
+                // 
+                //meanHeight += pooList[i].y;
+
+                if (meanHeight > pooList[i].y)
+                    meanHeight = pooList[i].y;
+            }
+        } else {
+            meanHeight = screen.height;
+        }
+        /*
+         1. 현재 충돌범위에드는 똥의 y좌표 최소값 // curHeight
+         2. 연결되어있는 똥중에서 y좌표 최소값(안전지대 나오기전까지) // linkHeight
+         3. 이동 범위를 미리고려했을때, 나오는 똥중에서 y좌표 최소값 // predictHeight
+         움직이지 않는 경우는 전부 다 똑같게 처리함.
+         해보고, 점수가 잘 안나오면 2번으로 처리함.
+         */
+        this.featureArray[2] = boundMinDist / screen.width;
+        this.featureArray[3] = (1 - (meanHeight / screen.height)) * 1.5;
+
+        /*
+         for(var i=0; i<this.featureSize; ++i)
+         console.log("W"+i+":"+this.weightArray[i]);
+         */
+
+        for (var i = 0; i < this.featureSize; ++i) {
+            this.featureArray[i] = this.featureArray[i] / (this.featureSize * 5);
+        }
+
+         // return f;
+    }
+    Bot.prototype.dotProduct = function (x, y) {
+        var sum = 0;
+
+        if (x.length != y.length)
+            assert("What the hack fuck you");
+        else
+            for (var i = 0; i < x.length; ++i)
+                sum += x[i] * y[i];
+
+        return sum;
+    }
+    Bot.prototype.getQSA = function (player, pooList, action) {
+        if (player.life <= 0)
+            return 0;
+
+        // var p = clone(player);
+        // p.move(action,1/60);
+        // Action을 취하면 모든 feature값이 다 변해야되는건가
+
+        player.move(action, 1 / 60);
+
+
+        /*
+         for(var i=0; i<pooList.length; ++i)
+         pooList[i].move(1/60);
+         */
+
+        // var f = this.getFeature(player, pooList);
+        this.getFeature(player,pooList);
+        player.unmove();
+
+        /*
+         for(var i=0; i<pooList.length; ++i)
+         pooList[i].unmove();
+         */
+        var sum = this.dotProduct(this.featureArray, this.weightArray);
+        // f = null;
+        return sum;
+    }
+    Bot.prototype.update = function (player, pooList) {
         var maxAction = -1000000;
+        var nextAction = -1;
         var idx = -1;
-        var nextAction;
-        for(var idx=0; idx<MW.MOVE_NUM;++idx)
-        {
-            if(actionList[idx]>maxAction) {
-                maxAction = actionList[idx];
-                nextAction = idx;
-            }
 
-        }
-       // console.log("NextAction:"+nextAction+"maxAction"+maxAction);
-     //   console.log("left:"+moveLeft+",hold:"+hold+",right:"+moveRight);
+        // var feature = this.getFeature(player, pooList);
+        //this.getFeature(player,pooList);
 
-        if(this.dirty)
-        {
-            //find best action from this current state
-            var Q_S_A = this.qValueArray[this.prevState.pos][this.prevState.vec][this.prevState.speed][this.prevState.poo][this.doAction];
 
-            this.qValueArray[this.prevState.pos][this.prevState.vec][this.prevState.speed][this.prevState.poo][this.doAction] =
-                Q_S_A + this.learningRate*(this.reward + this.discountFactor * maxAction - Q_S_A);
+        var sum = 0;
 
-        }else {
-            this.dirty=1;
-        }
 
-        this.prevState = clone(this.nextState);
-
-        if(cc.random0To1() <= this.explore){
+        if (cc.random0To1() <= this.explore) {
             var randomVal = Math.random() * 3;
             randomVal = Math.floor(randomVal);
             console.log("RANDOM CHOOSE " + randomVal);
-            this.doAction = randomVal;
-        }else {
-            this.doAction = nextAction;
+            maxAction = this.getQSA(player,pooList,randomVal);
+            nextAction = randomVal;
+
+            for(var i=0; i<this.featureSize; ++i)
+                this.tempFeature[i] = this.featureArray[i];
+
+        }else{
+
+            var possibleAction = new Array(MW.MOVE_NUM);
+
+            for (var i = 0; i < possibleAction.length; ++i) {
+                possibleAction[i] = i;
+            }
+
+            if (player.x == 0)
+                possibleAction[MW.MOVE_LEFT] = -1;
+            if (player.x == cc.winSize.width)
+                possibleAction[MW.MOVE_RIGHT] = -1;
+
+            for (var i = 0; i < possibleAction.length; ++i) {
+                if (possibleAction[i] < 0) {
+                    // console.log("getout:"+i);
+                    continue;
+                }
+                // console.log("I:"+i);
+                sum = this.getQSA(player, pooList, i);
+
+                if (sum > maxAction) {
+                    maxAction = sum;
+                    nextAction = i;
+                    for(var j=0; j<this.featureSize; ++j)
+                        this.tempFeature[j] = this.featureArray[j];
+                    // console.log("TEMP SETUP");
+                }
+
+            }
+            possibleAction = null;
         }
+        //   console.log("NextAction : "+nextAction+" Q_S_A : " + maxAction);
 
-       //this.doAction = nextAction;
+        if (this.dirty) {
 
+            var diff = this.reward + this.discountFactor * maxAction; // result value
+            var q_s_a = this.updateQSA; //predict value
+
+            // console.log("DIFF : "+diff+", UPDATE_Q_S_A : "+q_s_a);
+
+            if (maxAction == 0 && this.lastFeature[2] > 0) {
+                console.log("ZERO SUM" + this.lastFeature[2] + "WEIGHT" + this.weightArray[2]);
+            }
+            for (var i = 0; i < this.featureSize; ++i) {
+                var w = this.weightArray[i];
+                //   console.log("W "+i+" : "+w);
+                this.weightArray[i] = w + this.learningRate * (diff - q_s_a) * this.lastFeature[i];
+            }
+        } else {
+            this.dirty = 1;
+        }
+        //console.log("W_1 : "+this.weightArray[1]+", W_2:"+this.weightArray[2]+",W_3:"+this.weightArray[3]+",W_4:"+this.weightArray[4]);
+        // this.lastFeature = feature;
+
+        for(var i=0; i<this.featureSize;++i)
+            this.lastFeature[i] = this.tempFeature[i];
+
+        this.updateQSA = maxAction;
+
+        this.doAction = nextAction;
 
         return this.doAction;
-
-
-        //Q 업데이트하는 시점 잡기 .
-
-        //this.qValueArray[pos][vec[0]][vec[1]][idx];
-
-        //GET STATE
-        //var playerPos = this.getNormPlayerPos(player);
-        //var
-        /*
-            0. get Player pos
-            1. get Player vec
-                if Player vec==0 then direction right,vec=0
-            2. get poo list mapping to bound box
-
-                바운딩 박스는 x=player의 x, y=120부터 시작해서 올라감
-                바운딩 박스 좌상단부터는 x -= gridWidth * 2, y = 120 + gridHight*2
-
-                 바운딩 박스 좌표 배정.
-                 for(row=0; row<rowNum; ++row)
-                    for(col=0; col<colNum; ++col)
-                        B[row][col] = sx + (col*gridWidth) + sy - (row * gridHeight);
-
-                 bc_y = y + gridHeight
-                 bc_x = playerX
-                 bc_w = gridWidth * colNum
-                 bc_h = gridHeight * rowNum
-
-                 for(poo in poolist)
-                    if(collisionCheck(bc,poo))
-                     for(box in b)
-                        for(row=0; row<rowNum; ++row)
-                            for(col=0; col<colNum; ++col)
-                                if(min > dis(row,col))
-                                    min = dis(row,col);
-                        sum += Math.exp(2, rowNum*row + col);
-                  find action = max(Q[playerPos][playerDirection][playerVec][sum])
-                  return action;
-         */
-        //doAction = "MOVE_RIGHT";
     }
-
-    this.init();
-};
-function clone(obj) {
-    if (null == obj || "object" != typeof obj) return obj;
-    var copy = obj.constructor();
-    for (var attr in obj) {
-        if (obj.hasOwnProperty(attr)) copy[attr] = obj[attr];
-    }
-    return copy;
 }

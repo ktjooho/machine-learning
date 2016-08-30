@@ -179,6 +179,7 @@
                 <file name="src/app.js"/>
                 <file name="src/Poo.js"/>
                 <file name="src/Player.js"/>
+                <file name="src/Bot.js"/>
                 <file name="main.js"/>
 
             </sources>
